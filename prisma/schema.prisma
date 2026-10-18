@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int        @id @default(autoincrement()) @map("id_role")
+  name        String     @unique @map("role_name") @db.VarChar(50)
+  description String?    @db.VarChar(200)
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model Tariff {
+  id            Int      @id @default(autoincrement()) @map("id_tariff")
+  name          String   @unique @db.VarChar(100)
+  pricePerHour  Decimal  @map("price_per_hour")  @db.Decimal(10, 2)
+  pricePerMonth Decimal  @map("price_per_month") @db.Decimal(10, 2)
+  description   String?  @db.VarChar(200)
+  users         User[]
+
+  @@map("tariffs")
+}
+
+model User {
+  id               Int      @id @default(autoincrement()) @map("id_user")
+  fullName         String   @map("full_name") @db.VarChar(150)
+  email            String   @unique @db.VarChar(100)
+  phone            String?  @db.VarChar(20)
+  passwordHash     String   @map("password_hash") @db.VarChar(255)
+  registrationDate DateTime @default(now()) @map("registration_date") @db.Date
+  tariffId         Int      @map("id_tariff")
+
+  tariff    Tariff     @relation(fields: [tariffId], references: [id])
+  userRoles UserRole[]
+  bookings  Booking[]
+
+  @@index([tariffId], name: "idx_users_tariff")
+  @@map("users")
+}
+
+model UserRole {
+  id           Int      @id @default(autoincrement()) @map("id_user_role")
+  userId       Int      @map("id_user")
+  roleId       Int      @map("id_role")
+  assignedDate DateTime @default(now()) @map("assigned_date") @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId], name: "uq_user_roles_user_role")
+  @@index([roleId], name: "idx_user_roles_role")
+  @@map("user_roles")
+}
+
+model Resource {
+  id           Int      @id @default(autoincrement()) @map("id_resource")
+  resourceType String   @map("resource_type") @db.VarChar(10)
+  name         String   @db.VarChar(100)
+  capacity     Int?
+  location     String?  @db.VarChar(100)
+  equipment    String?  @db.VarChar(400)
+  status       String   @default("свободен") @db.VarChar(20)
+
+  bookings Booking[]
+
+  @@index([resourceType], name: "idx_resources_type")
+  @@index([status], name: "idx_resources_status")
+  @@map("resources")
+}
+
+model Service {
+  id          Int      @id @default(autoincrement()) @map("id_service")
+  name        String   @unique @db.VarChar(100)
+  price       Decimal  @db.Decimal(10, 2)
+  description String?  @db.VarChar(200)
+
+  bookingServices BookingService[]
+
+  @@map("services")
+}
+
+model Booking {
+  id            Int      @id @default(autoincrement()) @map("id_booking")
+  bookingCode   String   @unique @map("booking_code") @db.VarChar(10)
+  startDatetime DateTime @map("start_datetime")
+  endDatetime   DateTime @map("end_datetime")
+  status        String   @default("активна") @db.VarChar(20)
+  cost          Decimal  @db.Decimal(10, 2)
+  userId        Int      @map("id_user")
+  resourceId    Int      @map("id_resource")
+
+  user            User             @relation(fields: [userId], references: [id])
+  resource        Resource         @relation(fields: [resourceId], references: [id])
+  payment         Payment?
+  bookingServices BookingService[]
+
+  @@index([userId], name: "idx_bookings_user")
+  @@index([resourceId], name: "idx_bookings_resource")
+  @@index([startDatetime, endDatetime], name: "idx_bookings_dates")
+  @@index([status], name: "idx_bookings_status")
+  @@map("bookings")
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement()) @map("id_payment")
+  paymentDate   DateTime @default(now()) @map("payment_date")
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String   @map("payment_method") @db.VarChar(20)
+  status        String   @default("ожидает") @db.VarChar(20)
+  bookingId     Int      @unique @map("id_booking")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([status], name: "idx_payments_status")
+  @@index([paymentDate], name: "idx_payments_date")
+  @@map("payments")
+}
+
+model BookingService {
+  id            Int     @id @default(autoincrement()) @map("id_booking_service")
+  bookingId     Int     @map("id_booking")
+  serviceId     Int     @map("id_service")
+  quantity      Int     @default(1)
+  priceAtMoment Decimal @map("price_at_moment") @db.Decimal(10, 2)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@unique([bookingId, serviceId], name: "uq_booking_services_booking_service")
+  @@index([serviceId], name: "idx_booking_services_service")
+  @@map("booking_services")
+}
