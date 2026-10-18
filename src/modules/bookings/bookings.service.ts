@@ -197,25 +197,15 @@ export class BookingsService {
     };
   };
 
-    async checkIn(code: string) {
-    // Ищем бронь по уникальному хешу
+      async checkIn(code: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { bookingCode: code },
     });
 
-    if (!booking) {
-      throw new NotFoundException('Бронь с таким кодом не найдена');
-    }
-    if (booking.status !== 'активна') {
-      throw new BadRequestException(`Эта бронь уже ${booking.status}`);
-    }
+    if (!booking) throw new NotFoundException('Бронь с таким кодом не найдена');
+    if (booking.status !== 'активна') throw new BadRequestException(`Эта бронь уже ${booking.status}`);
 
-    // Меняем статус на завершена
-    const updated = await this.prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: 'завершена' },
-    });
-
+    // 👇 Возвращаем сразу объект брони
     return this.prisma.booking.update({
       where: { id: booking.id },
       data: { status: 'завершена' },
