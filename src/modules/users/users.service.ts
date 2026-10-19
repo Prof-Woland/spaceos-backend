@@ -48,6 +48,8 @@ export class UsersService {
     if (dto.fullName) dataToUpdate.fullName = dto.fullName;
     if (dto.phone) dataToUpdate.phone = dto.phone;
 
+    if (dto.avatar) dataToUpdate.avatar = dto.avatar; 
+
     // Если пользователь хочет сменить пароль
     if (dto.newPassword) {
       if (!dto.oldPassword) {
@@ -71,6 +73,7 @@ export class UsersService {
         fullName: true,
         email: true,
         phone: true,
+        avatar: true, 
         userRoles: { include: { role: true } },
         tariff: true,
       },
