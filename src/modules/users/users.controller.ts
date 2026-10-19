@@ -8,6 +8,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateTariffDto } from './dto/update-tariffs.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -31,6 +32,11 @@ export class UsersController {
   @Patch('profile') // 👈 Новый эндпоинт
   updateProfile(@CurrentUser() user: any, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.id, dto);
+  }
+
+  @Patch('profile/tariff')
+  updateTariff(@CurrentUser() user: any, @Body() dto: UpdateTariffDto) {
+    return this.usersService.updateTariff(user.id, dto);
   }
 
   @Delete(':id')

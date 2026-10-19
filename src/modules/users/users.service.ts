@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import * as argon2 from 'argon2';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateTariffDto } from './dto/update-tariffs.dto';
 
 @Injectable()
 export class UsersService {
@@ -73,6 +74,17 @@ export class UsersService {
         userRoles: { include: { role: true } },
         tariff: true,
       },
+    });
+  }
+
+  async updateTariff(userId: number, dto: UpdateTariffDto) {
+    const tariff = await this.prisma.tariff.findUnique({ where: { id: dto.tariffId } });
+    if (!tariff) throw new NotFoundException('Тариф не найден');
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { tariffId: dto.tariffId },
+      select: { id: true, fullName: true, email: true, phone: true, tariff: true, userRoles: { include: { role: true } } },
     });
   }
 

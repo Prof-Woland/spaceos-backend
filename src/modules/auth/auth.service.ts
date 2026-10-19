@@ -47,7 +47,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      include: { userRoles: { include: { role: true } } },
+      include: { userRoles: { include: { role: true } }, tariff: true },
     });
 
     if (!user) throw new UnauthorizedException('Неверный email или пароль');
@@ -69,6 +69,8 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         roles,
+        tariffId: user.tariffId,
+        tariffName: user.tariff?.name || 'Базовый',
       },
     };
   }
