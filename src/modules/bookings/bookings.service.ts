@@ -248,7 +248,7 @@ export class BookingsService {
     };
   }
 
-      async checkIn(code: string) {
+  async checkIn(code: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { bookingCode: code },
     });
@@ -263,6 +263,7 @@ export class BookingsService {
       include: {
         user: { select: { fullName: true, email: true, phone: true } },
         resource: true,
+        payment: true,
       }
     });
   }
