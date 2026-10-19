@@ -46,7 +46,7 @@ export class BookingsService {
     if (startHour >= 8 && endHour <= 11) {
       multiplier = 0.9;
     }
-    // Пиковый тариф (+20%) вечером с 18:00 до 21:00
+    // Пиковый тариф (+20%) вечером с 17:00 до 21:00
     else if (startHour >= 17) {
       multiplier = 1.2;
     }
@@ -120,6 +120,7 @@ export class BookingsService {
         resource: true,
         bookingServices: { include: { service: true } },
         payment: true,
+        review: true,
       },
       orderBy: { startDatetime: 'desc' },
     });

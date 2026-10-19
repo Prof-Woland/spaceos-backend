@@ -39,6 +39,7 @@ model User {
   tariff    Tariff     @relation(fields: [tariffId], references: [id])
   userRoles UserRole[]
   bookings  Booking[]
+  reviews   Review[]
 
   @@index([tariffId], name: "idx_users_tariff")
   @@map("users")
@@ -66,8 +67,11 @@ model Resource {
   location     String?  @db.VarChar(100)
   equipment    String?  @db.VarChar(400)
   status       String   @default("свободен") @db.VarChar(20)
+  averageRating Float    @default(0) @map("average_rating")
+  reviewCount   Int      @default(0) @map("review_count")
 
   bookings Booking[]
+  reviews  Review[]
 
   @@index([resourceType], name: "idx_resources_type")
   @@index([status], name: "idx_resources_status")
@@ -98,6 +102,7 @@ model Booking {
   user            User             @relation(fields: [userId], references: [id])
   resource        Resource         @relation(fields: [resourceId], references: [id])
   payment         Payment?
+  review          Review?
   bookingServices BookingService[]
 
   @@index([userId], name: "idx_bookings_user")
@@ -135,4 +140,21 @@ model BookingService {
   @@unique([bookingId, serviceId], name: "uq_booking_services_booking_service")
   @@index([serviceId], name: "idx_booking_services_service")
   @@map("booking_services")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement()) @map("id_review")
+  rating     Int      @db.SmallInt // Оценка от 1 до 5
+  comment    String?  @db.VarChar(500)
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  userId     Int      @map("id_user")
+  resourceId Int      @map("id_resource")
+  bookingId  Int      @unique @map("id_booking") // Один отзыв на одну бронь
+
+  user     User     @relation(fields: [userId], references: [id])
+  resource Resource @relation(fields: [resourceId], references: [id])
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+
+  @@map("reviews")
 }
