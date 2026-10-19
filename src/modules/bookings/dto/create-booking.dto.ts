@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsInt, IsOptional, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsDateString, IsInt, IsNumber, IsOptional, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class BookingServiceDto {
@@ -25,4 +25,8 @@ export class CreateBookingDto {
   @ValidateNested({ each: true })
   @Type(() => BookingServiceDto)
   services?: BookingServiceDto[];
+
+  @IsOptional()
+  @IsNumber()
+  timezoneOffset?: number; // 👈 ОБЯЗАТЕЛЬНО ДОЛЖНО БЫТЬ ЗДЕСЬ
 }
