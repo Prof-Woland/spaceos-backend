@@ -178,8 +178,7 @@ export class BookingsService {
     });
   };
 
-    async getAdminStats() {
-    // Получаем все брони с данными о пользователе и ресурсе
+      async getAdminStats() {
     const bookings = await this.prisma.booking.findMany({
       include: { resource: true, user: true },
     });
@@ -190,6 +189,11 @@ export class BookingsService {
     const rawRevenue = activeBookings.reduce((sum, b) => sum + Number(b.cost), 0);
     const totalRevenue = Math.round(rawRevenue * 100) / 100;
     const totalBookings = bookings.length;
+
+    // 👇 НОВОЕ: Средний чек
+    const averageCheck = activeBookings.length > 0 
+      ? Math.round((rawRevenue / activeBookings.length) * 100) / 100 
+      : 0;
 
     // 2. Распределение по статусам
     const statusCounts = bookings.reduce((acc, b) => {
@@ -209,11 +213,23 @@ export class BookingsService {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // 👇 4. Выручка по дням (за последние 7 дней)
+    // 👇 НОВОЕ: Выручка по ресурсам (кто приносит больше денег)
+    const revenueMap = activeBookings.reduce((acc, b) => {
+      const name = b.resource.name;
+      acc[name] = (acc[name] || 0) + Number(b.cost);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const revenueByResource = Object.entries(revenueMap)
+      .map(([name, revenue]) => ({ name, revenue: Math.round(revenue * 100) / 100 }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5); // Топ-5 самых прибыльных
+
+    // 4. Выручка по дням (за последние 7 дней)
     const last7Days = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date();
-      d.setDate(d.getDate() - (6 - i)); // От 6 дней назад до сегодня
-      return d.toISOString().split('T')[0]; // Формат YYYY-MM-DD
+      d.setDate(d.getDate() - (6 - i)); 
+      return d.toISOString().split('T')[0]; 
     });
 
     const revenueByDay = last7Days.map(dateStr => {
@@ -222,16 +238,15 @@ export class BookingsService {
       );
       const dayRevenue = dayBookings.reduce((sum, b) => sum + Number(b.cost), 0);
       
-      // Форматируем дату для графика (например, "12 окт")
       const dateObj = new Date(dateStr);
       const displayDate = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
       
       return { date: displayDate, revenue: Math.round(dayRevenue * 100) / 100 };
     });
 
-    // 👇 5. Пиковые часы (с 8:00 до 21:00)
+    // 5. Пиковые часы (с 8:00 до 21:00)
     const peakHoursMap = new Map<number, number>();
-    for (let i = 8; i <= 21; i++) peakHoursMap.set(i, 0); // Инициализация нулями
+    for (let i = 8; i <= 21; i++) peakHoursMap.set(i, 0); 
 
     activeBookings.forEach(b => {
       const hour = new Date(b.startDatetime).getHours();
@@ -245,7 +260,7 @@ export class BookingsService {
       count
     }));
 
-    // 👇 6. Топ-3 клиента по тратам
+    // 6. Топ-3 клиента по тратам
     const clientStats = activeBookings.reduce((acc, b) => {
       const clientName = b.user.fullName;
       if (!acc[clientName]) acc[clientName] = { totalSpent: 0, count: 0 };
@@ -262,11 +277,13 @@ export class BookingsService {
     return {
       totalRevenue,
       totalBookings,
+      averageCheck,       // 👈 Отдаем
       statusData,
       topResources,
-      revenueByDay, // 👈 Отдаем на фронт
-      peakHours,    // 👈 Отдаем на фронт
-      topClients    // 👈 Отдаем на фронт
+      revenueByResource,  // 👈 Отдаем
+      revenueByDay,
+      peakHours,
+      topClients
     };
   }
 
