@@ -7,7 +7,7 @@ import * as crypto from 'crypto';
 export class BookingsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateBookingDto, userId: number) {
+    async create(dto: CreateBookingDto, userId: number) {
     const start = new Date(dto.startDatetime);
     const end = new Date(dto.endDatetime);
 
@@ -37,19 +37,27 @@ export class BookingsService {
     // 3. Считаем время и базовую стоимость
     const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
     
-    // 👇 НОВАЯ ЛОГИКА: Динамическое ценообразование
+    // 👇 ИСПОЛЬЗУЕМ TIMEZONE OFFSET (приводим время UTC к локальному времени пользователя)
+    const offsetHours = (dto.timezoneOffset || 0) / 60; 
+    const localStartHour = (start.getUTCHours() - offsetHours + 24) % 24; 
+
     let multiplier = 1;
-    const startHour = start.getHours();
-    const endHour = end.getHours();
 
     // Утренняя скидка (-10%) с 8:00 до 11:00
-    if (startHour >= 8 && endHour <= 11) {
+    if (localStartHour >= 8 && localStartHour < 11) {
       multiplier = 0.9;
     }
     // Пиковый тариф (+20%) вечером с 17:00 до 21:00
-    else if (startHour >= 17) {
+    else if (localStartHour >= 17 && localStartHour < 21) {
       multiplier = 1.2;
     }
+
+    // 👇 ВЫВОДИМ В КОНСОЛЬ, ЧТОБЫ ПРОВЕРИТЬ
+    console.log(`--- Проверка цены ---`);
+    console.log(`Время UTC: ${start.getUTCHours()}:00, Оффсет: ${dto.timezoneOffset}, Локальный час: ${localStartHour}`);
+    console.log(`Коэффициент: ${multiplier}`);
+    console.log(`Тариф: ${user.tariff.name} (${user.tariff.pricePerHour} BYN/час)`);
+    console.log(`--------------------`);
 
     // Базовая стоимость с учетом коэффициента
     let totalCost = Number(user.tariff.pricePerHour) * durationHours * multiplier;
@@ -76,7 +84,7 @@ export class BookingsService {
     totalCost = Math.round(totalCost * 100) / 100;
     const bookingCode = crypto.randomBytes(4).toString('hex').toUpperCase();
 
-    // 5. Создаем бронь и сразу заглушку платежа
+    // 5. Создаем бронь
     try {
       return await this.prisma.booking.create({
         data: {
@@ -105,7 +113,6 @@ export class BookingsService {
         },
       });
     } catch (e: any) {
-      // 23P01 — ошибка exclusion constraint (овербукинг)
       if (e.code === '23P01') {
         throw new ConflictException('Этот ресурс уже забронирован на выбранное время');
       }
