@@ -37,8 +37,22 @@ export class BookingsService {
     // 3. Считаем время и базовую стоимость
     const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
     
-    // Базовая стоимость (цена из тарифа пользователя)
-    let totalCost = Number(user.tariff.pricePerHour) * durationHours;
+    // 👇 НОВАЯ ЛОГИКА: Динамическое ценообразование
+    let multiplier = 1;
+    const startHour = start.getHours();
+    const endHour = end.getHours();
+
+    // Утренняя скидка (-10%) с 8:00 до 11:00
+    if (startHour >= 8 && endHour <= 11) {
+      multiplier = 0.9;
+    }
+    // Пиковый тариф (+20%) вечером с 18:00 до 21:00
+    else if (startHour >= 17) {
+      multiplier = 1.2;
+    }
+
+    // Базовая стоимость с учетом коэффициента
+    let totalCost = Number(user.tariff.pricePerHour) * durationHours * multiplier;
 
     // 4. Считаем доп. услуги
     const bookingServicesData: any[] = [];
