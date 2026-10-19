@@ -71,6 +71,7 @@ export class AuthService {
         roles,
         tariffId: user.tariffId,
         tariffName: user.tariff?.name || 'Базовый',
+        avatar: user.avatar || null,
       },
     };
   }
