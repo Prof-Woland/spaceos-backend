@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import * as argon2 from 'argon2';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -33,6 +35,44 @@ export class UsersService {
     return this.prisma.userRole.create({
       data: { userId, roleId: role.id },
       include: { role: true }
+    });
+  }
+
+  async updateProfile(userId: number, dto: UpdateProfileDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Пользователь не найден');
+
+    const dataToUpdate: any = {};
+
+    if (dto.fullName) dataToUpdate.fullName = dto.fullName;
+    if (dto.phone) dataToUpdate.phone = dto.phone;
+
+    // Если пользователь хочет сменить пароль
+    if (dto.newPassword) {
+      if (!dto.oldPassword) {
+        throw new BadRequestException('Для смены пароля необходимо ввести старый пароль');
+      }
+      
+      const isPasswordValid = await argon2.verify(user.passwordHash, dto.oldPassword);
+      if (!isPasswordValid) {
+        throw new BadRequestException('Неверный старый пароль');
+      }
+
+      dataToUpdate.passwordHash = await argon2.hash(dto.newPassword);
+    }
+
+    // Обновляем и возвращаем безопасные данные (без хеша пароля)
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: dataToUpdate,
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        userRoles: { include: { role: true } },
+        tariff: true,
+      },
     });
   }
 

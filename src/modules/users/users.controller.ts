@@ -6,6 +6,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RoleName } from '../../common/constants';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -24,6 +26,11 @@ export class UsersController {
   @Roles(RoleName.ADMIN) // Только админ может менять роли
   updateRole(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
     return this.usersService.updateRole(+id, dto);
+  }
+
+  @Patch('profile') // 👈 Новый эндпоинт
+  updateProfile(@CurrentUser() user: any, @Body() dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(user.id, dto);
   }
 
   @Delete(':id')
