@@ -157,45 +157,96 @@ export class BookingsService {
   };
 
     async getAdminStats() {
+    // Получаем все брони с данными о пользователе и ресурсе
     const bookings = await this.prisma.booking.findMany({
-      include: { resource: true },
+      include: { resource: true, user: true },
     });
 
-    // 1. Общая выручка (без учета отмененных)
-    const totalRevenue = bookings
-      .filter(b => b.status !== 'отменена')
-      .reduce((sum, b) => sum + Number(b.cost), 0);
+    const activeBookings = bookings.filter(b => b.status !== 'отменена');
 
-    // 2. Общее количество
+    // 1. Общая выручка и количество
+    const rawRevenue = activeBookings.reduce((sum, b) => sum + Number(b.cost), 0);
+    const totalRevenue = Math.round(rawRevenue * 100) / 100;
     const totalBookings = bookings.length;
 
-    // 3. Распределение по статусам (для круговой диаграммы)
+    // 2. Распределение по статусам
     const statusCounts = bookings.reduce((acc, b) => {
       acc[b.status] = (acc[b.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-
     const statusData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
 
-    // 4. Топ-5 популярных ресурсов (для столбчатой диаграммы)
-    const resourceCounts = bookings.reduce((acc, b) => {
+    // 3. Топ-5 популярных ресурсов
+    const resourceCounts = activeBookings.reduce((acc, b) => {
       const name = b.resource.name;
       acc[name] = (acc[name] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-
     const topResources = Object.entries(resourceCounts)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
+
+    // 👇 4. Выручка по дням (за последние 7 дней)
+    const last7Days = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i)); // От 6 дней назад до сегодня
+      return d.toISOString().split('T')[0]; // Формат YYYY-MM-DD
+    });
+
+    const revenueByDay = last7Days.map(dateStr => {
+      const dayBookings = activeBookings.filter(b => 
+        new Date(b.startDatetime).toISOString().split('T')[0] === dateStr
+      );
+      const dayRevenue = dayBookings.reduce((sum, b) => sum + Number(b.cost), 0);
+      
+      // Форматируем дату для графика (например, "12 окт")
+      const dateObj = new Date(dateStr);
+      const displayDate = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+      
+      return { date: displayDate, revenue: Math.round(dayRevenue * 100) / 100 };
+    });
+
+    // 👇 5. Пиковые часы (с 8:00 до 21:00)
+    const peakHoursMap = new Map<number, number>();
+    for (let i = 8; i <= 21; i++) peakHoursMap.set(i, 0); // Инициализация нулями
+
+    activeBookings.forEach(b => {
+      const hour = new Date(b.startDatetime).getHours();
+      if (peakHoursMap.has(hour)) {
+        peakHoursMap.set(hour, peakHoursMap.get(hour)! + 1);
+      }
+    });
+
+    const peakHours = Array.from(peakHoursMap.entries()).map(([hour, count]) => ({
+      time: `${String(hour).padStart(2, '0')}:00`,
+      count
+    }));
+
+    // 👇 6. Топ-3 клиента по тратам
+    const clientStats = activeBookings.reduce((acc, b) => {
+      const clientName = b.user.fullName;
+      if (!acc[clientName]) acc[clientName] = { totalSpent: 0, count: 0 };
+      acc[clientName].totalSpent += Number(b.cost);
+      acc[clientName].count += 1;
+      return acc;
+    }, {} as Record<string, { totalSpent: number, count: number }>);
+
+    const topClients = Object.entries(clientStats)
+      .map(([name, data]) => ({ name, totalSpent: Math.round(data.totalSpent * 100) / 100, count: data.count }))
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, 3);
 
     return {
       totalRevenue,
       totalBookings,
       statusData,
       topResources,
+      revenueByDay, // 👈 Отдаем на фронт
+      peakHours,    // 👈 Отдаем на фронт
+      topClients    // 👈 Отдаем на фронт
     };
-  };
+  }
 
       async checkIn(code: string) {
     const booking = await this.prisma.booking.findUnique({
