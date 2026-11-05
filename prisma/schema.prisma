@@ -37,6 +37,8 @@ model User {
   registrationDate DateTime @default(now()) @map("registration_date") @db.Date
   tariffId         Int      @map("id_tariff")
 
+  deletedAt        DateTime? @map("deleted_at")
+
   tariff    Tariff     @relation(fields: [tariffId], references: [id])
   userRoles UserRole[]
   bookings  Booking[]

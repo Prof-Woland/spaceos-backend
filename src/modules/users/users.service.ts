@@ -11,6 +11,7 @@ export class UsersService {
 
   async findAll() {
     return this.prisma.user.findMany({
+      where: { deletedAt: null },
       select: {
         id: true,
         fullName: true,
@@ -93,7 +94,22 @@ export class UsersService {
 
   // 👇 Удаляем пользователя
   async remove(userId: number) {
-    return this.prisma.user.delete({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Пользователь не найден');
+    if (user.deletedAt) throw new BadRequestException('Пользователь уже удален');
+
+    // 👇 Soft Delete: затираем ПДн, но сохраняем запись
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        deletedAt: new Date(),
+        fullName: `Удалённый пользователь #${userId}`,
+        phone: null,
+        avatar: null,
+        email: `deleted_${userId}_${user.email}`, // сохраняем уникальность email
+        passwordHash: 'DELETED', // блокируем вход
+      },
+    });
   }
 
 }
